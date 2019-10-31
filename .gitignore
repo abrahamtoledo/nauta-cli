@@ -1,7 +1,5 @@
-.*
-bin
-build
-dist
-nauta_cli.egg-info
+/build
+/dist
+/nauta_cli.egg-info
+
 __pycache__
-**/__pycache__

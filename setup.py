@@ -12,7 +12,6 @@ setup(
     name="nauta-cli",
     version=0.6,
     description='Utilidad en linea de comandos (CLI) para la gestion del portal cautivo Nauta de Cuba',
-    long_description=long_description,
     long_description_content_type='text/markdown',
     url='https://github.com/atscub/nauta-cli',
     author='atscub',
@@ -24,10 +23,10 @@ setup(
         'License :: OSI Approved :: MIT License',
         'Programming Language :: Python'
     ],
-    keywords='nauta portal_cautivo',
+    keywords='nauta portal cautivo',
     packages=find_packages(),
     install_requires=['requests', 'bs4'],
     entry_points = {
-        'console_scripts': ['nautacli=nautacli.__main__:main'],
+        'console_scripts': ['nauta=nautacli:main'],
     }
 )
