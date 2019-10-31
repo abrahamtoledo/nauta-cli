@@ -21,19 +21,19 @@ Instalación fácil con PIP:
 1. Crear una entrada de usuario (card). En el terminal introducir:
 
 
-    `> nautacli card add periquito@nauta.com.cu`
+    `> nauta card add periquito@nauta.com.cu`
     
     Introducir la contraseña cuando se pida. Debe cambiar `periquito@nauta.com.cu` por su usuario Nauta.
 
 1. Iniciar sesion:
 
-    `> nautacli up periquito@nauta.com.cu`
+    `> nauta up periquito`
     
     Se muestra el tiempo en el terminal, para cerrar la sesión se debe pulsar `Ctrl+C`.
 
     * Opcionalmente puede especificar la duración máxima para la sesión, luego de la cual se desconecta automáticamente:
     
-        `> nautacli up --time 60 periquito@nauta.com.cu`
+        `> nauta up --time 60 periquito`
         
         El ejemplo anterior mantiene abierta la sesión durante un minuto.
     
