@@ -57,10 +57,10 @@ def parse_time(t):
 def expand_username(username):
     """If user enters just username (without domain) then expand it"""
     with dbm.open(CARDS_DB) as cards_db:
-        for user in cards_db:
+        for user in cards_db.keys():
             user = user.decode()
             user_part = user[:user.index('@')]
-            if username.lower() == user_part:
+            if username == user_part:
                 return user
     return username  # not found
 
