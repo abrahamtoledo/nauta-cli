@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 
-from pprint import pprint
 from textwrap import dedent
 from datetime import datetime
 
-import subprocess
 import requests
 import argparse
 import json
@@ -17,6 +15,9 @@ import re
 import getpass
 
 import logging
+
+from .__about__ import __name__, __version__
+
 
 CONFIG_DIR = os.path.expanduser("~/.local/share/nauta/")
 try:
@@ -453,6 +454,8 @@ def main():
         action="store_true",
         help="show debug info"
     )
+
+    parser.add_argument("--version", action="version", version="{} v{}".format(__name__, __version__))
 
     cards_parser = subparsers.add_parser('cards')
     cards_parser.set_defaults(func=cards)
