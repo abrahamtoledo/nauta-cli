@@ -1,8 +1,6 @@
-from textwrap import dedent
 from datetime import datetime
 
 import requests
-import argparse
 import json
 import time
 import bs4
@@ -12,59 +10,43 @@ import os
 import re
 import getpass
 
-import logging
 
-from .__about__ import __name__, __version__
+class Cli(object):
+    def __init__(self, CONFIG_DIR):
+        self.CONFIG_DIR = CONFIG_DIR
 
-
-CONFIG_DIR = os.getenv(
-    "NAUTA_CONFIG_DIR",
-    os.path.expanduser("~/.local/share/nauta/")
-)
-
-try:
-    os.makedirs(CONFIG_DIR)
-except FileExistsError:
-    pass
-CARDS_DB = os.path.join(CONFIG_DIR, "cards")
-ATTR_UUID_FILE = os.path.join(CONFIG_DIR, "attribute_uuid")
-LOGOUT_URL_FILE = os.path.join(CONFIG_DIR, "logout_url")
-logfile = open(os.path.join(CONFIG_DIR, "connections.log"), "a")
-
-
-def get_inputs(form_soup):
-    form = {}
-    for i in form_soup.find_all("input"):
         try:
-            form[i["name"]] = i["value"]
-        except KeyError:
-            continue
-    return form
+            os.makedirs(self.CONFIG_DIR)
+        except FileExistsError:
+            pass
+        
+        self.CARDS_DB = os.path.join(self.CONFIG_DIR, "cards")
+        self.ATTR_UUID_FILE = os.path.join(self.CONFIG_DIR, "attribute_uuid")
+        self.LOGOUT_URL_FILE = os.path.join(self.CONFIG_DIR, "logout_url")
+        self.logfile = open(os.path.join(self.CONFIG_DIR, "connections.log"), "a")
 
-
-class Nauta():
     @staticmethod
-    def log(*args, **kwargs):
-        kwargs.update(dict(file=logfile))
+    def get_inputs(form_soup):
+        form = {}
+        for i in form_soup.find_all("input"):
+            try:
+                form[i["name"]] = i["value"]
+            except KeyError:
+                continue
+        return form
+
+    def log(self, *args, **kwargs):
+        kwargs.update(dict(file=self.logfile))
         print(
             "{} ".format(datetime.now()),
             *args,
             **kwargs,
         )
-        logfile.flush()
+        self.logfile.flush()
 
-    @staticmethod
-    def parse_time(t):
-        try:
-            h,m,s = [int(x.strip()) for x in t.split(":")]
-            return h * 3600 + m * 60 + s
-        except:
-            return 0
-
-    @staticmethod
-    def expand_username(username):
+    def expand_username(self, username):
         """If user enters just username (without domain) then expand it"""
-        with dbm.open(CARDS_DB) as cards_db:
+        with dbm.open(self.CARDS_DB) as cards_db:
             for user in cards_db.keys():
                 user = user.decode()
                 user_part = user[:user.index('@')]
@@ -72,9 +54,8 @@ class Nauta():
                     return user
         return username  # not found
 
-    @staticmethod
-    def get_password(username):
-        with dbm.open(CARDS_DB) as cards_db:
+    def get_password(self, username):
+        with dbm.open(self.CARDS_DB) as cards_db:
             if not username in cards_db:
                 return None
             info = json.loads(cards_db[username].decode())
@@ -82,7 +63,7 @@ class Nauta():
 
     def select_card(self):
         cards = []
-        with dbm.open(CARDS_DB) as cards_db:
+        with dbm.open(self.CARDS_DB) as cards_db:
             for card in cards_db.keys():
                 info = json.loads(cards_db[card].decode())
                 tl = self.parse_time(info.get('time_left', '00:00:00'))
@@ -127,23 +108,25 @@ class Nauta():
 
         soup = bs4.BeautifulSoup(r.text, 'html.parser')
         action = soup.form["action"]
-        form = get_inputs(soup)
+        form = self.get_inputs(soup)
         r = session.post(action, form)
 
         soup = bs4.BeautifulSoup(r.text, 'html.parser')
 
         form_soup = soup.find("form", id="formulario")
         action = form_soup["action"]
-        form = get_inputs(form_soup)
-        form['username'] = username
-        form['password'] = password
+        form = self.get_inputs(form_soup)
 
         csrfhw = form['CSRFHW']
         wlanuserip = form['wlanuserip']
 
+        form['username'] = username
+        form['password'] = password
+
+
         last_attribute_uuid = ""
         try:
-            last_attribute_uuid = open(ATTR_UUID_FILE, "r").read().strip()
+            last_attribute_uuid = open(self.ATTR_UUID_FILE, "r").read().strip()
         except FileNotFoundError:
             pass
 
@@ -159,7 +142,7 @@ class Nauta():
             last_attribute_uuid,
             wlanuserip
         )
-        with open(LOGOUT_URL_FILE, "w") as f:
+        with open(self.LOGOUT_URL_FILE, "w") as f:
             f.write(guessed_logout_url + "\n")
 
         self.log("Attempting connection. Guessed logout url:", guessed_logout_url)
@@ -175,7 +158,7 @@ class Nauta():
         if attribute_uuid is None:
             print("Log in failed :(")
         else:
-            with open(ATTR_UUID_FILE, "w") as f:
+            with open(self.ATTR_UUID_FILE, "w") as f:
                 f.write(attribute_uuid + "\n")
 
             login_time = int(time.time())
@@ -191,7 +174,7 @@ class Nauta():
                 attribute_uuid,
                 wlanuserip
             )
-            with open(LOGOUT_URL_FILE, "w") as f:
+            with open(self.LOGOUT_URL_FILE, "w") as f:
                 f.write(logout_url + "\n")
 
             print("Logged in successfully. To logout, run 'nauta down'")
@@ -217,7 +200,7 @@ class Nauta():
                         if elapsed > args.time:
                             raise KeyboardInterrupt()
 
-                    if not os.path.exists(LOGOUT_URL_FILE):
+                    if not os.path.exists(self.LOGOUT_URL_FILE):
                         break
 
                     time.sleep(1)
@@ -234,17 +217,9 @@ class Nauta():
                 print("Reported time left:", tl)
                 self.log("Reported time left:", tl)
 
-    @staticmethod
-    def human_secs(secs):
-        return "{:02.0f}:{:02.0f}:{:02.0f}".format(
-            secs // 3600,
-            (secs % 3600) // 60,
-            secs % 60,
-        )
-
     def down(self, args):
         try:
-            logout_url = open(LOGOUT_URL_FILE).read().strip()
+            logout_url = open(self.LOGOUT_URL_FILE).read().strip()
         except FileNotFoundError:
             print("Connection seems to be down already. To connect, use 'nauta up'")
             return
@@ -261,15 +236,14 @@ class Nauta():
             self.log("Logout message: %s" % r.text)
             if 'SUCCESS' in r.text:
                 print('Connection closed successfully')
-                os.remove(LOGOUT_URL_FILE)
+                os.remove(self.LOGOUT_URL_FILE)
 
-    @staticmethod
-    def fetch_expire_date(username, password):
+    def fetch_expire_date(self, username, password):
         session = requests.Session()
         r = session.get("https://secure.etecsa.net:8443/")
         soup = bs4.BeautifulSoup(r.text, 'html.parser')
 
-        form = get_inputs(soup)
+        form = self.get_inputs(soup)
         action = "https://secure.etecsa.net:8443/EtecsaQueryServlet"
         form['username'] = username
         form['password'] = password
@@ -282,15 +256,14 @@ class Nauta():
         exp_text = exp_text.replace('\\', '')
         return exp_text
 
-    @staticmethod
-    def fetch_usertime(username):
+    def fetch_usertime(self, username):
         session = requests.Session()
         r = session.get("https://secure.etecsa.net:8443/EtecsaQueryServlet?op=getLeftTime&op1={}".format(username))
         return r.text
 
     def time_left(self, username, fresh=False, cached=False):
         now = time.time()
-        with dbm.open(CARDS_DB, "c") as cards_db:
+        with dbm.open(self.CARDS_DB, "c") as cards_db:
             card_info = json.loads(cards_db[username].decode())
             last_update = card_info.get('last_update', 0)
             password = card_info['password']
@@ -309,7 +282,7 @@ class Nauta():
         # because the expire date will change very infrequently
         # in the case of rechargeable accounts and it will
         # never change in the case of non-rechargeable cards
-        with dbm.open(CARDS_DB, "c") as cards_db:
+        with dbm.open(self.CARDS_DB, "c") as cards_db:
             card_info = json.loads(cards_db[username].decode())
             if not cached and (fresh or not 'expire_date' in card_info):
                 password = card_info['password']
@@ -319,9 +292,8 @@ class Nauta():
             exp_date = card_info['expire_date']
             return exp_date
 
-    @staticmethod
-    def delete_cards(cards):
-        with dbm.open(CARDS_DB, "c") as cards_db:
+    def delete_cards(self, cards):
+        with dbm.open(self.CARDS_DB, "c") as cards_db:
             if len(cards) > 0:
                 print("Will delete these cards:")
                 for card in cards:
@@ -338,7 +310,7 @@ class Nauta():
 
     def cards(self, args):
         entries = []
-        with dbm.open(CARDS_DB, "c") as cards_db:
+        with dbm.open(self.CARDS_DB, "c") as cards_db:
             for card in cards_db.keys():
                 card = card.decode()
                 card_info = json.loads(cards_db[card].decode())
@@ -367,13 +339,12 @@ class Nauta():
                 expiry
             ))
 
-    @staticmethod
-    def verify(username, password):
+    def verify(self, username, password):
         session = requests.Session()
         r = session.get("https://secure.etecsa.net:8443/")
         soup = bs4.BeautifulSoup(r.text, 'html.parser')
 
-        form = get_inputs(soup)
+        form = self.get_inputs(soup)
         action = "https://secure.etecsa.net:8443/EtecsaQueryServlet"
         form['username'] = username
         form['password'] = password
@@ -390,14 +361,14 @@ class Nauta():
         if not self.verify(username, password):
             print("Credentials seem incorrect")
             return
-        with dbm.open(CARDS_DB, "c") as cards_db:
+        with dbm.open(self.CARDS_DB, "c") as cards_db:
             cards_db[username.lower()] = json.dumps({
                 'password': password,
             })
 
     def cards_clean(self, args):
         cards_to_purge = []
-        with dbm.open(CARDS_DB, "c") as cards_db:
+        with dbm.open(self.CARDS_DB, "c") as cards_db:
             for card in cards_db.keys():
                 info = json.loads(cards_db[card].decode())
                 tl = self.parse_time(info.get('time_left'))
@@ -408,10 +379,9 @@ class Nauta():
     def cards_rm(self, args):
         self.delete_cards(args.usernames)
 
-    @staticmethod
-    def cards_info(args):
+    def cards_info(self, args):
         username = args.username
-        with dbm.open(CARDS_DB, "c") as cards_db:
+        with dbm.open(self.CARDS_DB, "c") as cards_db:
             card_info = json.loads(cards_db[username].decode())
             password = card_info['password']
     
@@ -419,7 +389,7 @@ class Nauta():
         r = session.get("https://secure.etecsa.net:8443/")
         soup = bs4.BeautifulSoup(r.text, 'html.parser')
     
-        form = get_inputs(soup)
+        form = self.get_inputs(soup)
         action = "https://secure.etecsa.net:8443/EtecsaQueryServlet"
         form['username'] = username
         form['password'] = password
@@ -446,89 +416,3 @@ class Nauta():
                 for cell in tds:
                     print(cell.text.strip(), end="\t")
                 print()
-
-
-def main():
-    nauta = Nauta()
-
-    parser = argparse.ArgumentParser(
-        epilog=dedent("""\
-        Subcommands:
-
-          up [-t] [username]
-          down
-          cards [-v] [-f] [-c]
-          cards add [username]
-          cards clean
-          cards rm username [username ...]
-          cards info username
-
-        Use -h after a subcommand for more info
-        """),
-        formatter_class=argparse.RawDescriptionHelpFormatter
-    )
-    subparsers = parser.add_subparsers()
-    parser.add_argument("-d", "--debug",
-        action="store_true",
-        help="show debug info"
-    )
-
-    parser.add_argument("--version", action="version", version="{} v{}".format(__name__, __version__))
-
-    cards_parser = subparsers.add_parser('cards')
-    cards_parser.set_defaults(func=nauta.cards)
-    cards_parser.add_argument("-v",
-        action="store_true",
-        help="show full passwords"
-    )
-    cards_parser.add_argument("-f", "--fresh",
-        action="store_true",
-        help="force a fresh request of card time"
-    )
-    cards_parser.add_argument("-c", "--cached",
-        action="store_true",
-        help="shows cached data, avoids the network"
-    )
-    cards_subparsers = cards_parser.add_subparsers()
-    cards_add_parser = cards_subparsers.add_parser('add')
-    cards_add_parser.set_defaults(func=nauta.cards_add)
-    cards_add_parser.add_argument('username', nargs="?")
-
-    cards_clean_parser = cards_subparsers.add_parser('clean')
-    cards_clean_parser.set_defaults(func=nauta.cards_clean)
-
-    cards_rm_parser = cards_subparsers.add_parser('rm')
-    cards_rm_parser.set_defaults(func=nauta.cards_rm)
-    cards_rm_parser.add_argument('usernames', nargs="+")
-
-    cards_info_parser = cards_subparsers.add_parser('info')
-    cards_info_parser.set_defaults(func=nauta.cards_info)
-    cards_info_parser.add_argument('username')
-
-    up_parser = subparsers.add_parser('up')
-    up_parser.set_defaults(func=nauta.up)
-    up_parser.add_argument('username', nargs="?")
-    up_parser.add_argument('-t', '--time', help='Define la duracion maxima (en segundos) para esta conexion', type=int)
-
-    down_parser = subparsers.add_parser('down')
-    down_parser.set_defaults(func=nauta.down)
-
-    args = parser.parse_args()
-
-    if 'username' in args and args.username and '@' not in args.username:
-        args.username = nauta.expand_username(args.username)
-    
-    if args.debug:
-        logging.basicConfig(level=logging.DEBUG)
-        from http.client import HTTPConnection
-        HTTPConnection.debuglevel = 2
-
-    if 'func' in args:
-        try:
-            args.func(args)
-        except requests.exceptions.ConnectionError as ex:
-            print("Conection error. Check your connection and try again.")
-            import traceback
-            nauta.log(traceback.format_exc())
-    else:
-        parser.print_help()
