@@ -1,3 +1,5 @@
+Este repo dejare de darle soporte en favor de https://github.com/atscub/nautapy/
+
 # nauta-cli
 
 Original [ateijelo/nauta-cli](https://github.com/ateijelo/nauta-cli)
