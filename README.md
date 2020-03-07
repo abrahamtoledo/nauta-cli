@@ -8,6 +8,9 @@ Original [ateijelo/nauta-cli](https://github.com/ateijelo/nauta-cli)
 
 **nauta-cli** es una utilidad en línea de comandos (CLI) para la gestión del portal cautivo [Nauta](https://secure.etecsa.net:8443/) de Cuba.
 
+## Estadisticas
+![Downloads](https://pepy.tech/badge/nauta-cli)
+
 ## Requisitos
 
 1. Instale la última versión estable de [Python](https://www.python.org/downloads/)
